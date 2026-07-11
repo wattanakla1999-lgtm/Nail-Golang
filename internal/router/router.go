@@ -17,6 +17,7 @@ func New(db *gorm.DB) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{
 			"service": "nailly-api",
 			"status":  "running",
+			"version": "v1.0.1",
 		})
 	})
 
