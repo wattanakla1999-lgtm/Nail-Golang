@@ -4,6 +4,7 @@ import (
 	"nailly-back-end/internal/handler"
 	"nailly-back-end/internal/repository"
 	"nailly-back-end/internal/service"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -11,6 +12,10 @@ import (
 
 func New(db *gorm.DB) *gin.Engine {
 	r := gin.Default()
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 
 	userRepository := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepository)

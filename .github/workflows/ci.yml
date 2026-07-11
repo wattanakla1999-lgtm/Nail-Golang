@@ -1,0 +1,99 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  ci:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+
+    steps:
+
+      # 1. ดึง Code จาก Github
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      # 2. ติดตั้ง Go ตาม version ใน go.mod
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+
+      # 3. Download dependency
+      - name: Download dependencies
+        run: go mod download
+
+
+      # 4. ตรวจ Format
+      - name: Check formatting
+        run: |
+          files=$(gofmt -l .)
+
+          if [ -n "$files" ]; then
+            echo "The following files are not formatted:"
+            echo "$files"
+            exit 1
+          fi
+
+
+      # 5. ตรวจ dependency
+      - name: Verify go.mod and go.sum
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+
+      # 6. Static Analysis
+      - name: Run vet
+        run: go vet ./...
+
+
+      # 7. Unit Test
+      - name: Run tests
+        run: go test -race ./...
+
+
+      # 8. Build
+      - name: Build API
+        run: |
+          go build \
+            -tags netgo \
+            -ldflags "-s -w" \
+            -o /tmp/nailly-api \
+            ./cmd/api
+
+
+      # 9. เปิด Docker Buildx สำหรับ build image
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      # 10. Build Docker image เพื่อตรวจว่า Dockerfile ใช้งานได้
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: nailly-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
