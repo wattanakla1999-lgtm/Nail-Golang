@@ -1,5 +1,5 @@
 .env
+.git
 api
 *.log
 .DS_Store
-
