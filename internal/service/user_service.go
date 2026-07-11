@@ -1,7 +1,7 @@
 package service
 
 import (
-	"errors"
+	"nailly-back-end/internal/apperror"
 	"nailly-back-end/internal/model"
 	"nailly-back-end/internal/repository"
 	"nailly-back-end/pkg/utils"
@@ -33,13 +33,13 @@ func (s *UserService) GetUsersOlderThan(age int) ([]model.User, error) {
 
 func (s *UserService) CreateUser(input model.User) (model.User, error) {
 	if input.Name == "" {
-		return model.User{}, errors.New("name is required")
+		return model.User{}, apperror.BadRequest("name is required", apperror.ErrValidation)
 	}
 	if input.Email == "" {
-		return model.User{}, errors.New("email is required")
+		return model.User{}, apperror.BadRequest("email is required", apperror.ErrValidation)
 	}
 	if input.Age <= 0 {
-		return model.User{}, errors.New("age is required and must be greater than 0")
+		return model.User{}, apperror.BadRequest("age is required and must be greater than 0", apperror.ErrValidation)
 	}
 
 	if err := s.repo.Create(&input); err != nil {
