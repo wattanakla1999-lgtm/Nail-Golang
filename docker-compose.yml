@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nailly
+      POSTGRES_PASSWORD: nailly1234
+      POSTGRES_DB: nailly_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      PORT: 8080
+      DATABASE_DSN: host=db user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
