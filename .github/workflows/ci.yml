@@ -97,3 +97,11 @@ jobs:
           tags: nailly-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+
+      # 11. Deploy ไป Render หลังจาก CI ผ่าน เฉพาะ push เข้า main
+      - name: Deploy to Render
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: curl --fail --request POST "$RENDER_DEPLOY_HOOK_URL"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
