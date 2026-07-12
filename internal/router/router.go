@@ -13,17 +13,21 @@ import (
 func New(db *gorm.DB) *gin.Engine {
 	r := gin.Default()
 
-	r.GET("/", func(c *gin.Context) {
+	rootHandler := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"service": "nailly-api",
 			"status":  "running",
 			"version": "v1.0.1",
 		})
-	})
-
-	r.GET("/health", func(c *gin.Context) {
+	}
+	healthHandler := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	}
+
+	r.GET("/", rootHandler)
+	r.HEAD("/", rootHandler)
+	r.GET("/health", healthHandler)
+	r.HEAD("/health", healthHandler)
 
 	userRepository := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepository)
