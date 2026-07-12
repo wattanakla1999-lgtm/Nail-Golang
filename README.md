@@ -8,6 +8,10 @@ Go REST API learning project using Gin, GORM, and PostgreSQL.
 go run ./cmd/api
 ```
 
+## CORS
+
+Set `ALLOW_ORIGIN` to the frontend origin that can call this API. Use `*` for local development, or a real frontend URL in production.
+
 ## Keep Supabase Active
 
 Use this endpoint from a cron job or uptime monitor to create a lightweight database activity:

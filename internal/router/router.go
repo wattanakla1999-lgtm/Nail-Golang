@@ -10,8 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func New(db *gorm.DB) *gin.Engine {
+func New(db *gorm.DB, allowOrigin string) *gin.Engine {
 	r := gin.Default()
+	r.Use(corsMiddleware(allowOrigin))
 
 	rootHandler := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -65,4 +66,19 @@ func New(db *gorm.DB) *gin.Engine {
 	api.DELETE("/users/:id", userHandler.DeleteUser)
 
 	return r
+}
+
+func corsMiddleware(allowOrigin string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", allowOrigin)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, HEAD, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

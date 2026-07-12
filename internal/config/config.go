@@ -6,17 +6,27 @@ import (
 )
 
 type Config struct {
-	Port string
-	DSN  string
+	Port        string
+	DSN         string
+	AllowOrigin string
 }
 
 func Load() Config {
 	loadEnvFile(".env")
 
 	return Config{
-		Port: getEnv("PORT", "8080"),
-		DSN:  getEnv("DATABASE_DSN", "host=localhost user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable"),
+		Port:        getEnv("PORT", "8080"),
+		DSN:         getEnv("DATABASE_DSN", "host=localhost user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable"),
+		AllowOrigin: normalizeOrigin(getEnv("ALLOW_ORIGIN", "*")),
 	}
+}
+
+func normalizeOrigin(origin string) string {
+	if origin == "*" {
+		return origin
+	}
+
+	return strings.TrimRight(origin, "/")
 }
 
 func getEnv(key, fallback string) string {
