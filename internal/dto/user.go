@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var thailandLocation = time.FixedZone("Asia/Bangkok", 7*60*60)
+
 type CreateUserRequest struct {
 	Name  string `json:"name" binding:"required"`
 	Email string `json:"email" binding:"required,email"`
@@ -39,8 +41,8 @@ func ToUserResponse(user model.User) UserResponse {
 		Name:      user.Name,
 		Email:     user.Email,
 		Age:       user.Age,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		CreatedAt: user.CreatedAt.In(thailandLocation),
+		UpdatedAt: user.UpdatedAt.In(thailandLocation),
 	}
 }
 
