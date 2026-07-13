@@ -27,6 +27,9 @@ func New(db *gorm.DB, allowOrigin string) *gin.Engine {
 	// Services
 	RegisterServiceRoutes(api, db)
 
+	// Nail Technicians
+	RegisterNailTechnicianRoutes(api, db)
+
 	return r
 }
 

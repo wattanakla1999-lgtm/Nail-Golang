@@ -6,6 +6,7 @@ import (
 )
 
 type CreateServiceRequest struct {
+	ServiceID    string    `json:"serviceId"`
 	ServiceName  string    `gorm:"type:varchar(255);not null" json:"serviceName"`
 	ServicePrice int       `gorm:"not null" json:"servicePrice"`
 	Duration     int       `gorm:"not null" json:"duration"`
@@ -26,7 +27,7 @@ type UpdateServiceRequest struct {
 }
 
 type ServiceResponse struct {
-	ID           uint      `json:"id"`
+	ServiceID    string    `json:"serviceId"`
 	ServiceName  string    `json:"serviceName"`
 	ServicePrice int       `json:"servicePrice"`
 	Duration     int       `json:"duration"`
@@ -39,7 +40,7 @@ type ServiceResponse struct {
 
 func ToServiceResponse(service model.Service) ServiceResponse {
 	return ServiceResponse{
-		ID:           service.ID,
+		ServiceID:    service.ServiceID,
 		ServiceName:  service.ServiceName,
 		ServicePrice: service.ServicePrice,
 		Duration:     service.Duration,
@@ -62,6 +63,7 @@ func ToServiceResponses(services []model.Service) []ServiceResponse {
 
 func (r CreateServiceRequest) ToModel() model.Service {
 	return model.Service{
+		ServiceID:    r.ServiceID,
 		ServiceName:  r.ServiceName,
 		ServicePrice: r.ServicePrice,
 		Duration:     r.Duration,

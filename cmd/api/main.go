@@ -20,6 +20,8 @@ func main() {
 	fmt.Println("Database User migrated!")
 	db.AutoMigrate(&model.Service{})
 	fmt.Println("Database Service migrated!")
+	db.AutoMigrate(&model.NailTechnician{})
+	fmt.Println("Database Nail Technician migrated!")
 
 	r := router.New(db, cfg.AllowOrigin)
 	r.Run(":" + cfg.Port)
