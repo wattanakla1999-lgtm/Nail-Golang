@@ -5,43 +5,41 @@ import (
 	"time"
 )
 
-
 type CreateServiceRequest struct {
-    ServiceID          int    `gorm:"primaryKey;type:varchar(50)" json:"id"`
-    ServiceName        string    `gorm:"type:varchar(255);not null" json:"serviceName"`
-    ServicePrice       int       `gorm:"not null" json:"servicePrice"`
-    Duration    int       `gorm:"not null" json:"duration"`
-    ServiceImg         string    `gorm:"type:varchar(500)" json:"img,omitempty"`
-    Popular     bool      `gorm:"default:false" json:"popular"`
-    Description string    `gorm:"type:text" json:"description,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-    UpdatedAt   time.Time `json:"updatedAt"`
+	ServiceName  string    `gorm:"type:varchar(255);not null" json:"serviceName"`
+	ServicePrice int       `gorm:"not null" json:"servicePrice"`
+	Duration     int       `gorm:"not null" json:"duration"`
+	ServiceImg   string    `gorm:"type:varchar(500)" json:"img,omitempty"`
+	Popular      bool      `gorm:"default:false" json:"popular"`
+	Description  string    `gorm:"type:text" json:"description,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type UpdateServiceRequest struct {
-    ServiceName        string    `gorm:"type:varchar(255);not null" json:"serviceName"`
-    ServicePrice       int       `gorm:"not null" json:"servicePrice"`
-    Duration    int       `gorm:"not null" json:"duration"`
-    ServiceImg         string    `gorm:"type:varchar(500)" json:"img,omitempty"`
-    Popular     bool      `gorm:"default:false" json:"popular"`
-    Description string    `gorm:"type:text" json:"description,omitempty"`
+	ServiceName  string `gorm:"type:varchar(255);not null" json:"serviceName"`
+	ServicePrice int    `gorm:"not null" json:"servicePrice"`
+	Duration     int    `gorm:"not null" json:"duration"`
+	ServiceImg   string `gorm:"type:varchar(500)" json:"img,omitempty"`
+	Popular      bool   `gorm:"default:false" json:"popular"`
+	Description  string `gorm:"type:text" json:"description,omitempty"`
 }
 
 type ServiceResponse struct {
-    ServiceID          int    `json:"id"`
-    ServiceName        string    `json:"serviceName"`
-    ServicePrice       int       `json:"servicePrice"`
-    Duration    int       `json:"duration"`
-    ServiceImg         string    `json:"img,omitempty"`
-    Popular     bool      `json:"popular"`
-    Description string    `json:"description,omitempty"`
-    CreatedAt   time.Time `json:"createdAt"`
-    UpdatedAt   time.Time `json:"updatedAt"`
+	ID           uint      `json:"id"`
+	ServiceName  string    `json:"serviceName"`
+	ServicePrice int       `json:"servicePrice"`
+	Duration     int       `json:"duration"`
+	ServiceImg   string    `json:"img,omitempty"`
+	Popular      bool      `json:"popular"`
+	Description  string    `json:"description,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 func ToServiceResponse(service model.Service) ServiceResponse {
 	return ServiceResponse{
-		ServiceID:    service.ServiceID,
+		ID:           service.ID,
 		ServiceName:  service.ServiceName,
 		ServicePrice: service.ServicePrice,
 		Duration:     service.Duration,
@@ -64,7 +62,6 @@ func ToServiceResponses(services []model.Service) []ServiceResponse {
 
 func (r CreateServiceRequest) ToModel() model.Service {
 	return model.Service{
-		ServiceID:    r.ServiceID,
 		ServiceName:  r.ServiceName,
 		ServicePrice: r.ServicePrice,
 		Duration:     r.Duration,
