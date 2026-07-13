@@ -17,7 +17,9 @@ func main() {
 	db := database.Connect(cfg.DSN)
 
 	db.AutoMigrate(&model.User{})
-	fmt.Println("Database migrated!")
+	fmt.Println("Database User migrated!")
+	db.AutoMigrate(&model.Service{})
+	fmt.Println("Database Service migrated!")
 
 	r := router.New(db, cfg.AllowOrigin)
 	r.Run(":" + cfg.Port)

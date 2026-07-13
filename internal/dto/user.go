@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var thailandLocation = time.FixedZone("Asia/Bangkok", 7*60*60)
+
 
 type CreateUserRequest struct {
 	Name  string `json:"name" binding:"required"`
@@ -26,13 +26,6 @@ type UserResponse struct {
 	Age       int       `json:"age"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type PaginatedResponse struct {
-	Data  any   `json:"data"`
-	Page  int   `json:"page"`
-	Limit int   `json:"limit"`
-	Total int64 `json:"total"`
 }
 
 func ToUserResponse(user model.User) UserResponse {
