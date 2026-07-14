@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"nailly-back-end/internal/config"
@@ -16,12 +17,31 @@ func main() {
 	cfg := config.Load()
 	db := database.Connect(cfg.DSN)
 
-	db.AutoMigrate(&model.User{})
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		log.Fatal("migrate users: ", err)
+	}
 	fmt.Println("Database User migrated!")
-	db.AutoMigrate(&model.Service{})
+	if err := db.AutoMigrate(&model.Service{}); err != nil {
+		log.Fatal("migrate services: ", err)
+	}
 	fmt.Println("Database Service migrated!")
-	db.AutoMigrate(&model.NailTechnician{})
+	if err := db.AutoMigrate(&model.NailTechnician{}); err != nil {
+		log.Fatal("migrate nail technicians: ", err)
+	}
 	fmt.Println("Database Nail Technician migrated!")
+
+	// Legacy schemas may have a composite primary key containing a custom string ID.
+	// These unique indexes let booking foreign keys safely reference gorm.Model.ID.
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_service_dbs_gorm_id ON service_dbs (id)").Error; err != nil {
+		log.Fatal("prepare service booking foreign key: ", err)
+	}
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_nail_technician_dbs_gorm_id ON nail_technician_dbs (id)").Error; err != nil {
+		log.Fatal("prepare technician booking foreign key: ", err)
+	}
+	if err := db.AutoMigrate(&model.Booking{}); err != nil {
+		log.Fatal("migrate bookings: ", err)
+	}
+	fmt.Println("Database Booking migrated!")
 
 	r := router.New(db, cfg.AllowOrigin)
 	r.Run(":" + cfg.Port)

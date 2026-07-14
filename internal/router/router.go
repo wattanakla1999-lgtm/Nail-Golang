@@ -30,6 +30,9 @@ func New(db *gorm.DB, allowOrigin string) *gin.Engine {
 	// Nail Technicians
 	RegisterNailTechnicianRoutes(api, db)
 
+	// Bookings
+	RegisterBookingRoutes(api, db)
+
 	return r
 }
 
@@ -71,7 +74,7 @@ func keepAliveHandler(db *gorm.DB) gin.HandlerFunc {
 func corsMiddleware(allowOrigin string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", allowOrigin)
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, HEAD, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
 
 		if c.Request.Method == http.MethodOptions {

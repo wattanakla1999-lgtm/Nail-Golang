@@ -27,7 +27,9 @@ type UpdateServiceRequest struct {
 }
 
 type ServiceResponse struct {
-	ServiceID    string    `json:"serviceId"`
+	ID           uint      `json:"id"`
+	ServiceID    uint      `json:"serviceId"`
+	ServiceCode  string    `json:"serviceCode,omitempty"`
 	ServiceName  string    `json:"serviceName"`
 	ServicePrice int       `json:"servicePrice"`
 	Duration     int       `json:"duration"`
@@ -40,7 +42,9 @@ type ServiceResponse struct {
 
 func ToServiceResponse(service model.Service) ServiceResponse {
 	return ServiceResponse{
-		ServiceID:    service.ServiceID,
+		ID:           service.ID,
+		ServiceID:    service.ID,
+		ServiceCode:  service.ServiceID,
 		ServiceName:  service.ServiceName,
 		ServicePrice: service.ServicePrice,
 		Duration:     service.Duration,

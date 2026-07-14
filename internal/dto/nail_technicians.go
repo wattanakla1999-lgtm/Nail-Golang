@@ -29,7 +29,9 @@ type UpdateNailTechnicianRequest struct {
 }
 
 type NailTechnicianResponse struct {
-	TechnicianID    string    `json:"technicianId"`
+	ID              uint      `json:"id"`
+	TechnicianID    uint      `json:"technicianId"`
+	TechnicianCode  string    `json:"technicianCode,omitempty"`
 	TechnicianName  string    `json:"technicianName"`
 	Phone           string    `json:"phone,omitempty"`
 	ExperienceYears int       `json:"experienceYears"`
@@ -43,7 +45,9 @@ type NailTechnicianResponse struct {
 
 func ToNailTechnicianResponse(technician model.NailTechnician) NailTechnicianResponse {
 	return NailTechnicianResponse{
-		TechnicianID:    technician.TechnicianID,
+		ID:              technician.ID,
+		TechnicianID:    technician.ID,
+		TechnicianCode:  technician.TechnicianID,
 		TechnicianName:  technician.TechnicianName,
 		Phone:           technician.Phone,
 		ExperienceYears: technician.ExperienceYears,
