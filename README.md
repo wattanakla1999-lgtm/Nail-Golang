@@ -8,6 +8,33 @@ Go REST API learning project using Gin, GORM, and PostgreSQL.
 go run ./cmd/api
 ```
 
+## Admin Authentication
+
+Set `JWT_SECRET`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` in `.env` before deployment. Local development defaults to `admin` / `nailly2025`.
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"nailly2025"}'
+```
+
+Protected endpoints require `Authorization: Bearer <token>`. `GET /api/auth/me` can be used to validate the current session.
+
+## Shop Settings
+
+Both endpoints require an admin token:
+
+```text
+GET /api/settings
+PUT /api/settings
+```
+
+The update body contains `shopStatus` (`open` or `closed`), `openTime`, `closeTime`, and `shopPhone`. Times use the `HH:MM` 24-hour format.
+
+## Dashboard
+
+`GET /api/dashboard/stats` requires an admin token and returns today's appointment/revenue totals, customer and service counts, today's appointment list, and popular services. Popular-service `rate` is `0` until review data is added.
+
 ## CORS
 
 Set `ALLOW_ORIGIN` to the frontend origin that can call this API. Use `*` for local development, or a real frontend URL in production.

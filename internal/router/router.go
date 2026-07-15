@@ -1,13 +1,15 @@
 package router
 
 import (
+	"nailly-back-end/internal/middleware"
+	"nailly-back-end/internal/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func New(db *gorm.DB, allowOrigin string) *gin.Engine {
+func New(db *gorm.DB, allowOrigin string, jwtManager *service.JWTManager) *gin.Engine {
 	r := gin.Default()
 	r.Use(corsMiddleware(allowOrigin))
 
@@ -16,25 +18,35 @@ func New(db *gorm.DB, allowOrigin string) *gin.Engine {
 	r.HEAD("/", rootHandler)
 
 	api := r.Group("/api")
+	requireAdmin := middleware.RequireAdmin(jwtManager)
 
 	// Keep-alive
 	api.GET("/keep-alive", keepAliveHandler(db))
 	api.HEAD("/keep-alive", keepAliveHandler(db))
 
+	// Authentication
+	RegisterAuthRoutes(api, db, jwtManager, requireAdmin)
+
 	// Users
-	RegisterUserRoutes(api, db)
+	RegisterUserRoutes(api, db, requireAdmin)
 
 	// Services
-	RegisterServiceRoutes(api, db)
+	RegisterServiceRoutes(api, db, requireAdmin)
 
 	// Nail Technicians
-	RegisterNailTechnicianRoutes(api, db)
+	RegisterNailTechnicianRoutes(api, db, requireAdmin)
 
 	// Bookings
-	RegisterBookingRoutes(api, db)
+	RegisterBookingRoutes(api, db, requireAdmin)
 
 	// Reports
-	RegisterReportRoutes(api, db)
+	RegisterReportRoutes(api, db, requireAdmin)
+
+	// Dashboard
+	RegisterDashboardRoutes(api, db, requireAdmin)
+
+	// Shop Settings
+	RegisterShopSettingRoutes(api, db, requireAdmin)
 
 	return r
 }

@@ -49,7 +49,8 @@ func (f *fakeBookingStore) FindAll(filter repository.BookingFilter, pagination u
 			filter.TechnicianID != nil && (booking.TechnicianID == nil || *booking.TechnicianID != *filter.TechnicianID) ||
 			filter.Status != "" && booking.Status != filter.Status ||
 			filter.DateFrom != nil && booking.StartAt.Before(*filter.DateFrom) ||
-			filter.DateTo != nil && booking.StartAt.After(*filter.DateTo) {
+			filter.DateTo != nil && booking.StartAt.After(*filter.DateTo) ||
+			filter.CustomerPhone != "" && booking.CustomerPhone != filter.CustomerPhone {
 			continue
 		}
 		bookings = append(bookings, f.hydrate(booking))

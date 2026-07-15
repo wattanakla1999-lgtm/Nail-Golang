@@ -9,17 +9,18 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterBookingRoutes(api *gin.RouterGroup, db *gorm.DB) {
+func RegisterBookingRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
 	bookingRepository := repository.NewBookingRepository(db)
 	bookingService := service.NewBookingService(bookingRepository)
 	bookingHandler := handler.NewBookingHandler(bookingService)
 
 	bookings := api.Group("/bookings")
-	bookings.GET("", bookingHandler.GetBookings)
+	bookings.GET("", requireAdmin, bookingHandler.GetBookings)
 	bookings.GET("/busy-slots", bookingHandler.GetBusySlots)
-	bookings.GET("/:id", bookingHandler.GetBookingByID)
+	bookings.GET("/customer", bookingHandler.GetCustomerBookings)
+	bookings.GET("/:id", requireAdmin, bookingHandler.GetBookingByID)
 	bookings.POST("", bookingHandler.CreateBooking)
-	bookings.PUT("/:id", bookingHandler.UpdateBooking)
-	bookings.DELETE("/:id", bookingHandler.DeleteBooking)
-	bookings.PATCH("/:id/status", bookingHandler.UpdateBookingStatus)
+	bookings.PUT("/:id", requireAdmin, bookingHandler.UpdateBooking)
+	bookings.DELETE("/:id", requireAdmin, bookingHandler.DeleteBooking)
+	bookings.PATCH("/:id/status", requireAdmin, bookingHandler.UpdateBookingStatus)
 }

@@ -9,6 +9,7 @@ import (
 	"nailly-back-end/pkg/utils"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,24 @@ func (h *BookingHandler) GetBookings(c *gin.Context) {
 	pagination := utils.NewPagination(c.DefaultQuery("page", "1"), c.DefaultQuery("limit", "6"))
 
 	bookings, total, err := h.service.GetBookings(filter, pagination)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.PaginatedResponse{
+		Data: dto.ToBookingResponses(bookings), Page: pagination.Page,
+		Limit: pagination.Limit, Total: total,
+	})
+}
+
+func (h *BookingHandler) GetCustomerBookings(c *gin.Context) {
+	phone := strings.TrimSpace(c.Query("phone"))
+	if phone == "" {
+		respondError(c, apperror.BadRequest("phone is required", apperror.ErrValidation))
+		return
+	}
+	pagination := utils.NewPagination(c.DefaultQuery("page", "1"), c.DefaultQuery("limit", "100"))
+	bookings, total, err := h.service.GetBookings(repository.BookingFilter{CustomerPhone: phone}, pagination)
 	if err != nil {
 		respondError(c, err)
 		return

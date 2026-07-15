@@ -9,10 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterReportRoutes(api *gin.RouterGroup, db *gorm.DB) {
+func RegisterReportRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
 	reportRepository := repository.NewReportRepository(db)
 	reportService := service.NewReportService(reportRepository)
 	reportHandler := handler.NewReportHandler(reportService)
 
-	api.GET("/reports", reportHandler.GetReport)
+	api.GET("/reports", requireAdmin, reportHandler.GetReport)
 }

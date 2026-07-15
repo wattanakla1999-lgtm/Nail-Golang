@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterNailTechnicianRoutes(api *gin.RouterGroup, db *gorm.DB) {
+func RegisterNailTechnicianRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
 	nailTechnicianRepository := repository.NewNailTechnicianRepository(db)
 	nailTechnicianService := service.NewNailTechnicianService(nailTechnicianRepository)
 	nailTechnicianHandler := handler.NewNailTechnicianHandler(nailTechnicianService)
@@ -17,7 +17,7 @@ func RegisterNailTechnicianRoutes(api *gin.RouterGroup, db *gorm.DB) {
 	nailTechnicians := api.Group("/nail_technician")
 	nailTechnicians.GET("", nailTechnicianHandler.GetNailTechnicians)
 	nailTechnicians.GET("/:id", nailTechnicianHandler.GetNailTechnicianByID)
-	nailTechnicians.POST("", nailTechnicianHandler.CreateNailTechnician)
-	nailTechnicians.PUT("/:id", nailTechnicianHandler.UpdateNailTechnician)
-	nailTechnicians.DELETE("/:id", nailTechnicianHandler.DeleteNailTechnician)
+	nailTechnicians.POST("", requireAdmin, nailTechnicianHandler.CreateNailTechnician)
+	nailTechnicians.PUT("/:id", requireAdmin, nailTechnicianHandler.UpdateNailTechnician)
+	nailTechnicians.DELETE("/:id", requireAdmin, nailTechnicianHandler.DeleteNailTechnician)
 }

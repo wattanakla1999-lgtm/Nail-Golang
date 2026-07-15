@@ -8,7 +8,9 @@ import (
 	"nailly-back-end/internal/config"
 	"nailly-back-end/internal/database"
 	"nailly-back-end/internal/model"
+	"nailly-back-end/internal/repository"
 	"nailly-back-end/internal/router"
+	"nailly-back-end/internal/service"
 )
 
 func main() {
@@ -21,6 +23,15 @@ func main() {
 		log.Fatal("migrate users: ", err)
 	}
 	fmt.Println("Database User migrated!")
+	if err := db.AutoMigrate(&model.Admin{}); err != nil {
+		log.Fatal("migrate admins: ", err)
+	}
+	jwtManager := service.NewJWTManager(cfg.JWTSecret, cfg.JWTTTL)
+	authService := service.NewAuthService(repository.NewAuthRepository(db), jwtManager)
+	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminName, cfg.AdminPassword); err != nil {
+		log.Fatal("seed configured admin: ", err)
+	}
+	fmt.Println("Database Admin migrated!")
 	if err := db.AutoMigrate(&model.Service{}); err != nil {
 		log.Fatal("migrate services: ", err)
 	}
@@ -42,8 +53,12 @@ func main() {
 		log.Fatal("migrate bookings: ", err)
 	}
 	fmt.Println("Database Booking migrated!")
+	if err := db.AutoMigrate(&model.ShopSetting{}); err != nil {
+		log.Fatal("migrate shop settings: ", err)
+	}
+	fmt.Println("Database Shop Setting migrated!")
 
-	r := router.New(db, cfg.AllowOrigin)
+	r := router.New(db, cfg.AllowOrigin, jwtManager)
 	r.Run(":" + cfg.Port)
 }
 

@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterServiceRoutes(api *gin.RouterGroup, db *gorm.DB) {
+func RegisterServiceRoutes(api *gin.RouterGroup, db *gorm.DB, requireAdmin gin.HandlerFunc) {
 	serviceRepository := repository.NewServiceRepository(db)
 	serviceService := service.NewServicesService(serviceRepository)
 	serviceHandler := handler.NewServicesHandler(serviceService)
@@ -17,7 +17,7 @@ func RegisterServiceRoutes(api *gin.RouterGroup, db *gorm.DB) {
 	services := api.Group("/services")
 	services.GET("", serviceHandler.GetServices)
 	services.GET("/:id", serviceHandler.GetServiceByID)
-	services.POST("", serviceHandler.CreateService)
-	services.PUT("/:id", serviceHandler.UpdateService)
-	services.DELETE("/:id", serviceHandler.DeleteService)
+	services.POST("", requireAdmin, serviceHandler.CreateService)
+	services.PUT("/:id", requireAdmin, serviceHandler.UpdateService)
+	services.DELETE("/:id", requireAdmin, serviceHandler.DeleteService)
 }

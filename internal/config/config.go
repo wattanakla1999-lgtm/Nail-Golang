@@ -2,23 +2,43 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	Port        string
-	DSN         string
-	AllowOrigin string
+	Port          string
+	DSN           string
+	AllowOrigin   string
+	JWTSecret     string
+	JWTTTL        time.Duration
+	AdminUsername string
+	AdminPassword string
+	AdminName     string
 }
 
 func Load() Config {
 	loadEnvFile(".env")
 
 	return Config{
-		Port:        getEnv("PORT", "8080"),
-		DSN:         getEnv("DATABASE_DSN", "host=localhost user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable"),
-		AllowOrigin: normalizeOrigin(getEnv("ALLOW_ORIGIN", "*")),
+		Port:          getEnv("PORT", "8080"),
+		DSN:           getEnv("DATABASE_DSN", "host=localhost user=nailly password=nailly1234 dbname=nailly_db port=5432 sslmode=disable"),
+		AllowOrigin:   normalizeOrigin(getEnv("ALLOW_ORIGIN", "*")),
+		JWTSecret:     getEnv("JWT_SECRET", "dev-only-change-me-before-production"),
+		JWTTTL:        time.Duration(getEnvInt("JWT_TTL_HOURS", 24)) * time.Hour,
+		AdminUsername: getEnv("ADMIN_USERNAME", "admin"),
+		AdminPassword: getEnv("ADMIN_PASSWORD", "nailly2025"),
+		AdminName:     getEnv("ADMIN_NAME", "ผู้ดูแลระบบ"),
 	}
+}
+
+func getEnvInt(key string, fallback int) int {
+	value, err := strconv.Atoi(getEnv(key, ""))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func normalizeOrigin(origin string) string {

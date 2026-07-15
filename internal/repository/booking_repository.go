@@ -12,12 +12,13 @@ import (
 var ErrTechnicianOverlap = errors.New("technician booking time overlaps")
 
 type BookingFilter struct {
-	UserID       *uint
-	ServiceID    *uint
-	TechnicianID *uint
-	Status       model.BookingStatus
-	DateFrom     *time.Time
-	DateTo       *time.Time
+	UserID        *uint
+	ServiceID     *uint
+	TechnicianID  *uint
+	Status        model.BookingStatus
+	DateFrom      *time.Time
+	DateTo        *time.Time
+	CustomerPhone string
 }
 
 type BookingRepository struct {
@@ -53,6 +54,9 @@ func (r *BookingRepository) FindAll(filter BookingFilter, pagination utils.Pagin
 	}
 	if filter.DateTo != nil {
 		query = query.Where("start_at <= ?", *filter.DateTo)
+	}
+	if filter.CustomerPhone != "" {
+		query = query.Where("customer_phone = ?", filter.CustomerPhone)
 	}
 
 	var total int64
