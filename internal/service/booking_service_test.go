@@ -44,7 +44,7 @@ func newFakeBookingStore() *fakeBookingStore {
 func (f *fakeBookingStore) FindAll(filter repository.BookingFilter, pagination utils.Pagination) ([]model.Booking, int64, error) {
 	bookings := make([]model.Booking, 0)
 	for _, booking := range f.bookings {
-		if booking.DeletedAt.Valid || filter.UserID != nil && booking.UserID != *filter.UserID ||
+		if booking.DeletedAt.Valid || filter.UserID != nil && (booking.UserID == nil || *booking.UserID != *filter.UserID) ||
 			filter.ServiceID != nil && booking.ServiceID != *filter.ServiceID ||
 			filter.TechnicianID != nil && (booking.TechnicianID == nil || *booking.TechnicianID != *filter.TechnicianID) ||
 			filter.Status != "" && booking.Status != filter.Status ||
@@ -165,7 +165,11 @@ func (f *fakeBookingStore) Delete(booking *model.Booking) error {
 }
 
 func (f *fakeBookingStore) hydrate(booking model.Booking) model.Booking {
-	booking.User = f.users[booking.UserID]
+	booking.User = nil
+	if booking.UserID != nil {
+		user := f.users[*booking.UserID]
+		booking.User = &user
+	}
 	booking.Service = f.services[booking.ServiceID]
 	booking.Technician = nil
 	if booking.TechnicianID != nil {
@@ -186,9 +190,10 @@ func bookingServiceForTest(store *fakeBookingStore) *BookingService {
 }
 
 func validCreateBookingInput() CreateBookingInput {
+	userID := uint(1)
 	technicianID := uint(1)
 	return CreateBookingInput{
-		UserID: 1, ServiceID: 2, TechnicianID: &technicianID,
+		UserID: &userID, ServiceID: 2, TechnicianID: &technicianID,
 		StartAt:      time.Date(2026, 7, 15, 10, 0, 0, 0, time.FixedZone("Asia/Bangkok", 7*60*60)),
 		CustomerName: "Somying", CustomerPhone: "0812345678", Note: "flower pattern",
 	}
@@ -217,7 +222,7 @@ func TestCreateBookingForeignKeyNotFound(t *testing.T) {
 		prepare func(*CreateBookingInput)
 		message string
 	}{
-		{name: "user", prepare: func(input *CreateBookingInput) { input.UserID = 99 }, message: "user not found"},
+		{name: "user", prepare: func(input *CreateBookingInput) { id := uint(99); input.UserID = &id }, message: "user not found"},
 		{name: "service", prepare: func(input *CreateBookingInput) { input.ServiceID = 99 }, message: "service not found"},
 		{name: "technician", prepare: func(input *CreateBookingInput) { id := uint(99); input.TechnicianID = &id }, message: "technician not found"},
 	}
@@ -228,6 +233,35 @@ func TestCreateBookingForeignKeyNotFound(t *testing.T) {
 			_, err := bookingServiceForTest(newFakeBookingStore()).CreateBooking(input)
 			assertAppError(t, err, http.StatusNotFound, test.message)
 		})
+	}
+}
+
+func TestCreateWalkInBookingWithoutUser(t *testing.T) {
+	input := validCreateBookingInput()
+	input.UserID = nil
+	input.CustomerName = "คุณสมชาย เดินผ่านมา"
+	input.CustomerPhone = "0812345678"
+
+	booking, err := bookingServiceForTest(newFakeBookingStore()).CreateBooking(input)
+	if err != nil {
+		t.Fatalf("CreateBooking() error = %v", err)
+	}
+	if booking.UserID != nil || booking.User != nil {
+		t.Fatalf("walk-in user = (%v, %+v), want nil", booking.UserID, booking.User)
+	}
+}
+
+func TestUpdateBookingCanRemoveUser(t *testing.T) {
+	store := newFakeBookingStore()
+	input := validCreateBookingInput()
+	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusPending)
+
+	booking, err := bookingServiceForTest(store).UpdateBooking(1, UpdateBookingInput{UserIDSet: true, UserID: nil})
+	if err != nil {
+		t.Fatalf("UpdateBooking() error = %v", err)
+	}
+	if booking.UserID != nil || booking.User != nil {
+		t.Fatalf("updated user = (%v, %+v), want nil", booking.UserID, booking.User)
 	}
 }
 
@@ -288,7 +322,8 @@ func TestGetBookingsPaginationAndFilters(t *testing.T) {
 	for i := uint(1); i <= 8; i++ {
 		booking := existingBooking(i, 1, base.Add(time.Duration(i)*time.Hour), model.BookingStatusConfirmed)
 		if i > 6 {
-			booking.UserID = 2
+			userID := uint(2)
+			booking.UserID = &userID
 		}
 		if i == 6 {
 			booking.Status = model.BookingStatusCancelled
@@ -392,8 +427,9 @@ func equalStrings(left, right []string) bool {
 }
 
 func existingBooking(id, technicianID uint, startAt time.Time, status model.BookingStatus) model.Booking {
+	userID := uint(1)
 	return model.Booking{
-		Model: gorm.Model{ID: id}, BookingNo: "BK-EXISTING", UserID: 1, ServiceID: 2,
+		Model: gorm.Model{ID: id}, BookingNo: "BK-EXISTING", UserID: &userID, ServiceID: 2,
 		TechnicianID: &technicianID, StartAt: startAt, EndAt: startAt.Add(time.Hour),
 		CustomerName: "Customer", CustomerPhone: "0800000000", ServiceName: "Gel nails",
 		Price: 300, DurationMinutes: 60, Status: status,

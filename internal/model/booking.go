@@ -28,7 +28,7 @@ type Booking struct {
 	gorm.Model
 
 	BookingNo       string        `gorm:"type:varchar(50);not null;uniqueIndex" json:"bookingNo"`
-	UserID          uint          `gorm:"not null;index" json:"userId"`
+	UserID          *uint         `gorm:"index" json:"userId"`
 	ServiceID       uint          `gorm:"not null;index" json:"serviceId"`
 	TechnicianID    *uint         `gorm:"index" json:"technicianId,omitempty"`
 	StartAt         time.Time     `gorm:"not null;index" json:"startAt"`
@@ -43,7 +43,7 @@ type Booking struct {
 	Note            string        `gorm:"type:text" json:"note,omitempty"`
 	CancelReason    string        `gorm:"type:text" json:"cancelReason,omitempty"`
 
-	User       User            `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
+	User       *User           `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
 	Service    Service         `gorm:"foreignKey:ServiceID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
 	Technician *NailTechnician `gorm:"foreignKey:TechnicianID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
 }

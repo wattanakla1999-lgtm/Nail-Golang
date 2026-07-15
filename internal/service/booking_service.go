@@ -30,7 +30,7 @@ type BookingStore interface {
 }
 
 type CreateBookingInput struct {
-	UserID        uint
+	UserID        *uint
 	ServiceID     uint
 	TechnicianID  *uint
 	StartAt       time.Time
@@ -43,6 +43,7 @@ type CreateBookingInput struct {
 
 type UpdateBookingInput struct {
 	UserID          *uint
+	UserIDSet       bool
 	ServiceID       *uint
 	TechnicianID    *uint
 	TechnicianIDSet bool
@@ -124,16 +125,23 @@ func (s *BookingService) GetBusySlots(date time.Time, technicianID, serviceID *u
 }
 
 func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking, error) {
-	if input.UserID == 0 || input.ServiceID == 0 || input.StartAt.IsZero() {
-		return model.Booking{}, apperror.BadRequest("userId, serviceId and startAt are required", apperror.ErrValidation)
+	if input.ServiceID == 0 || input.StartAt.IsZero() {
+		return model.Booking{}, apperror.BadRequest("serviceId and startAt are required", apperror.ErrValidation)
 	}
 	if strings.TrimSpace(input.CustomerName) == "" || strings.TrimSpace(input.CustomerPhone) == "" {
 		return model.Booking{}, apperror.BadRequest("customerName and customerPhone are required", apperror.ErrValidation)
 	}
 
-	user, err := s.findUser(input.UserID)
-	if err != nil {
-		return model.Booking{}, err
+	var user *model.User
+	if input.UserID != nil {
+		if *input.UserID == 0 {
+			return model.Booking{}, apperror.BadRequest("userId must be greater than 0 or null", apperror.ErrValidation)
+		}
+		found, err := s.findUser(*input.UserID)
+		if err != nil {
+			return model.Booking{}, err
+		}
+		user = &found
 	}
 	serviceModel, err := s.findService(input.ServiceID)
 	if err != nil {
@@ -212,12 +220,19 @@ func (s *BookingService) UpdateBooking(id uint, input UpdateBookingInput) (model
 	}
 
 	recalculateEnd := false
-	if input.UserID != nil {
-		user, findErr := s.findUser(*input.UserID)
-		if findErr != nil {
-			return model.Booking{}, findErr
+	if input.UserIDSet {
+		booking.UserID = input.UserID
+		booking.User = nil
+		if input.UserID != nil {
+			if *input.UserID == 0 {
+				return model.Booking{}, apperror.BadRequest("userId must be greater than 0 or null", apperror.ErrValidation)
+			}
+			user, findErr := s.findUser(*input.UserID)
+			if findErr != nil {
+				return model.Booking{}, findErr
+			}
+			booking.User = &user
 		}
-		booking.UserID, booking.User = *input.UserID, user
 	}
 	if input.ServiceID != nil {
 		serviceModel, findErr := s.findService(*input.ServiceID)

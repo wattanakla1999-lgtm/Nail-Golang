@@ -28,7 +28,7 @@ func (n *NullableUint) UnmarshalJSON(data []byte) error {
 }
 
 type CreateBookingRequest struct {
-	UserID        uint                `json:"userId" binding:"required"`
+	UserID        *uint               `json:"userId"`
 	ServiceID     uint                `json:"serviceId" binding:"required"`
 	TechnicianID  *uint               `json:"technicianId"`
 	StartAt       time.Time           `json:"startAt" binding:"required"`
@@ -40,7 +40,7 @@ type CreateBookingRequest struct {
 }
 
 type UpdateBookingRequest struct {
-	UserID        *uint                `json:"userId"`
+	UserID        NullableUint         `json:"userId"`
 	ServiceID     *uint                `json:"serviceId"`
 	TechnicianID  NullableUint         `json:"technicianId"`
 	StartAt       *time.Time           `json:"startAt"`
@@ -77,7 +77,7 @@ type BookingTechnicianResponse struct {
 type BookingResponse struct {
 	ID              uint                       `json:"id"`
 	BookingNo       string                     `json:"bookingNo"`
-	UserID          uint                       `json:"userId"`
+	UserID          *uint                      `json:"userId"`
 	ServiceID       uint                       `json:"serviceId"`
 	TechnicianID    *uint                      `json:"technicianId"`
 	StartAt         time.Time                  `json:"startAt"`
@@ -91,7 +91,7 @@ type BookingResponse struct {
 	PaymentMethod   model.PaymentMethod        `json:"paymentMethod"`
 	Note            string                     `json:"note,omitempty"`
 	CancelReason    string                     `json:"cancelReason,omitempty"`
-	User            BookingUserResponse        `json:"user"`
+	User            *BookingUserResponse       `json:"user"`
 	Service         BookingServiceResponse     `json:"service"`
 	Technician      *BookingTechnicianResponse `json:"technician"`
 	CreatedAt       time.Time                  `json:"createdAt"`
@@ -116,10 +116,6 @@ func ToBookingResponse(booking model.Booking) BookingResponse {
 		PaymentMethod:   booking.PaymentMethod,
 		Note:            booking.Note,
 		CancelReason:    booking.CancelReason,
-		User: BookingUserResponse{
-			ID:   booking.User.ID,
-			Name: booking.User.Name,
-		},
 		Service: BookingServiceResponse{
 			ID:       booking.Service.ID,
 			Name:     booking.Service.ServiceName,
@@ -128,6 +124,9 @@ func ToBookingResponse(booking model.Booking) BookingResponse {
 		},
 		CreatedAt: booking.CreatedAt.In(thailandLocation),
 		UpdatedAt: booking.UpdatedAt.In(thailandLocation),
+	}
+	if booking.User != nil {
+		response.User = &BookingUserResponse{ID: booking.User.ID, Name: booking.User.Name}
 	}
 
 	if booking.Technician != nil {

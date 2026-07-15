@@ -129,7 +129,7 @@ func (h *BookingHandler) UpdateBooking(c *gin.Context) {
 		return
 	}
 	booking, err := h.service.UpdateBooking(id, service.UpdateBookingInput{
-		UserID: request.UserID, ServiceID: request.ServiceID,
+		UserID: request.UserID.Value, UserIDSet: request.UserID.Set, ServiceID: request.ServiceID,
 		TechnicianID: request.TechnicianID.Value, TechnicianIDSet: request.TechnicianID.Set,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
 		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,

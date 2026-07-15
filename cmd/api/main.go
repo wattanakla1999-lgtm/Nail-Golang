@@ -49,6 +49,11 @@ func main() {
 	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_nail_technician_dbs_gorm_id ON nail_technician_dbs (id)").Error; err != nil {
 		log.Fatal("prepare technician booking foreign key: ", err)
 	}
+	if db.Migrator().HasTable(&model.Booking{}) {
+		if err := db.Exec("ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL").Error; err != nil {
+			log.Fatal("make booking user optional: ", err)
+		}
+	}
 	if err := db.AutoMigrate(&model.Booking{}); err != nil {
 		log.Fatal("migrate bookings: ", err)
 	}
