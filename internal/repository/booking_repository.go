@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrTechnicianOverlap = errors.New("technician booking time overlaps")
@@ -131,10 +132,32 @@ func (r *BookingRepository) FindActiveTechnicianIDs() ([]uint, error) {
 	return ids, err
 }
 
-func (r *BookingRepository) Create(booking *model.Booking) error {
+func (r *BookingRepository) Create(booking *model.Booking, walkInCustomer *model.User) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockAndCheckOverlap(tx, booking); err != nil {
 			return err
+		}
+		if walkInCustomer != nil {
+			result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "phone"}},
+				DoNothing: true,
+			}).Create(walkInCustomer)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				if err := tx.Unscoped().Where("phone = ?", *walkInCustomer.Phone).First(walkInCustomer).Error; err != nil {
+					return err
+				}
+				if walkInCustomer.DeletedAt.Valid {
+					if err := tx.Unscoped().Model(walkInCustomer).Update("deleted_at", nil).Error; err != nil {
+						return err
+					}
+					walkInCustomer.DeletedAt = gorm.DeletedAt{}
+				}
+			}
+			booking.UserID = &walkInCustomer.ID
+			booking.User = walkInCustomer
 		}
 		return tx.Omit("User", "Service", "Technician").Create(booking).Error
 	})

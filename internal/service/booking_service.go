@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -24,7 +25,7 @@ type BookingStore interface {
 	HasTechnicianOverlap(technicianID uint, startAt, endAt time.Time, excludeBookingID uint) (bool, error)
 	FindBusyBookings(startAt, endAt time.Time, technicianID *uint) ([]model.Booking, error)
 	FindActiveTechnicianIDs() ([]uint, error)
-	Create(booking *model.Booking) error
+	Create(booking *model.Booking, walkInCustomer *model.User) error
 	Update(booking *model.Booking) error
 	Delete(booking *model.Booking) error
 }
@@ -132,7 +133,10 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		return model.Booking{}, apperror.BadRequest("customerName and customerPhone are required", apperror.ErrValidation)
 	}
 
+	customerName := strings.TrimSpace(input.CustomerName)
+	customerPhone := strings.TrimSpace(input.CustomerPhone)
 	var user *model.User
+	var walkInCustomer *model.User
 	if input.UserID != nil {
 		if *input.UserID == 0 {
 			return model.Booking{}, apperror.BadRequest("userId must be greater than 0 or null", apperror.ErrValidation)
@@ -142,6 +146,12 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 			return model.Booking{}, err
 		}
 		user = &found
+	} else {
+		walkInCustomer = &model.User{
+			Name:  customerName,
+			Email: walkInEmail(customerPhone),
+			Phone: &customerPhone,
+		}
 	}
 	serviceModel, err := s.findService(input.ServiceID)
 	if err != nil {
@@ -192,8 +202,8 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		TechnicianID:    input.TechnicianID,
 		StartAt:         input.StartAt,
 		EndAt:           endAt,
-		CustomerName:    strings.TrimSpace(input.CustomerName),
-		CustomerPhone:   strings.TrimSpace(input.CustomerPhone),
+		CustomerName:    customerName,
+		CustomerPhone:   customerPhone,
 		ServiceName:     serviceModel.ServiceName,
 		Price:           serviceModel.ServicePrice,
 		DurationMinutes: serviceModel.Duration,
@@ -204,13 +214,18 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		Service:         serviceModel,
 		Technician:      technician,
 	}
-	if err := s.repo.Create(&booking); err != nil {
+	if err := s.repo.Create(&booking, walkInCustomer); err != nil {
 		if errors.Is(err, repository.ErrTechnicianOverlap) {
 			return model.Booking{}, bookingTimeOverlapError(err)
 		}
 		return model.Booking{}, err
 	}
 	return booking, nil
+}
+
+func walkInEmail(phone string) string {
+	hash := sha256.Sum256([]byte(phone))
+	return fmt.Sprintf("walkin-%x@nailly.local", hash[:8])
 }
 
 func (s *BookingService) UpdateBooking(id uint, input UpdateBookingInput) (model.Booking, error) {

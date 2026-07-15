@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-
-
 type CreateUserRequest struct {
 	Name  string `json:"name" binding:"required"`
 	Email string `json:"email" binding:"required,email"`
@@ -23,6 +21,7 @@ type UserResponse struct {
 	ID        uint      `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
+	Phone     *string   `json:"phone,omitempty"`
 	Age       int       `json:"age"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -33,6 +32,7 @@ func ToUserResponse(user model.User) UserResponse {
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
+		Phone:     user.Phone,
 		Age:       user.Age,
 		CreatedAt: user.CreatedAt.In(thailandLocation),
 		UpdatedAt: user.UpdatedAt.In(thailandLocation),

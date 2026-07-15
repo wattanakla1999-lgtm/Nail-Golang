@@ -19,6 +19,7 @@ type fakeBookingStore struct {
 	services      map[uint]model.Service
 	technicians   map[uint]model.NailTechnician
 	bookings      map[uint]model.Booking
+	nextUserID    uint
 	nextBookingID uint
 }
 
@@ -37,6 +38,7 @@ func newFakeBookingStore() *fakeBookingStore {
 			2: {Model: gorm.Model{ID: 2}, TechnicianName: "Ploy"},
 		},
 		bookings:      make(map[uint]model.Booking),
+		nextUserID:    3,
 		nextBookingID: 1,
 	}
 }
@@ -138,11 +140,26 @@ func (f *fakeBookingStore) FindActiveTechnicianIDs() ([]uint, error) {
 	return ids, nil
 }
 
-func (f *fakeBookingStore) Create(booking *model.Booking) error {
+func (f *fakeBookingStore) Create(booking *model.Booking, walkInCustomer *model.User) error {
 	for _, current := range f.bookings {
 		if current.BookingNo == booking.BookingNo {
 			return errors.New("duplicate booking number")
 		}
+	}
+	if walkInCustomer != nil {
+		for _, user := range f.users {
+			if user.Phone != nil && walkInCustomer.Phone != nil && *user.Phone == *walkInCustomer.Phone {
+				walkInCustomer = &user
+				break
+			}
+		}
+		if walkInCustomer.ID == 0 {
+			walkInCustomer.ID = f.nextUserID
+			f.nextUserID++
+			f.users[walkInCustomer.ID] = *walkInCustomer
+		}
+		booking.UserID = &walkInCustomer.ID
+		booking.User = walkInCustomer
 	}
 	booking.ID = f.nextBookingID
 	f.nextBookingID++
@@ -237,17 +254,45 @@ func TestCreateBookingForeignKeyNotFound(t *testing.T) {
 }
 
 func TestCreateWalkInBookingWithoutUser(t *testing.T) {
+	store := newFakeBookingStore()
 	input := validCreateBookingInput()
 	input.UserID = nil
 	input.CustomerName = "คุณสมชาย เดินผ่านมา"
 	input.CustomerPhone = "0812345678"
 
-	booking, err := bookingServiceForTest(newFakeBookingStore()).CreateBooking(input)
+	booking, err := bookingServiceForTest(store).CreateBooking(input)
 	if err != nil {
 		t.Fatalf("CreateBooking() error = %v", err)
 	}
-	if booking.UserID != nil || booking.User != nil {
-		t.Fatalf("walk-in user = (%v, %+v), want nil", booking.UserID, booking.User)
+	if booking.UserID == nil || booking.User == nil {
+		t.Fatalf("walk-in user = (%v, %+v), want created customer", booking.UserID, booking.User)
+	}
+	if booking.User.Name != input.CustomerName || booking.User.Phone == nil || *booking.User.Phone != input.CustomerPhone {
+		t.Fatalf("created customer = %+v, want booking name and phone", booking.User)
+	}
+	if _, ok := store.users[*booking.UserID]; !ok {
+		t.Fatalf("created customer %d was not persisted", *booking.UserID)
+	}
+}
+
+func TestCreateWalkInBookingReusesCustomerByPhone(t *testing.T) {
+	store := newFakeBookingStore()
+	phone := "0812345678"
+	store.users[3] = model.User{Model: gorm.Model{ID: 3}, Name: "Existing Customer", Phone: &phone}
+	store.nextUserID = 4
+
+	input := validCreateBookingInput()
+	input.UserID = nil
+	input.CustomerPhone = phone
+	booking, err := bookingServiceForTest(store).CreateBooking(input)
+	if err != nil {
+		t.Fatalf("CreateBooking() error = %v", err)
+	}
+	if booking.UserID == nil || *booking.UserID != 3 {
+		t.Fatalf("UserID = %v, want existing customer 3", booking.UserID)
+	}
+	if len(store.users) != 3 {
+		t.Fatalf("users count = %d, want 3", len(store.users))
 	}
 }
 
