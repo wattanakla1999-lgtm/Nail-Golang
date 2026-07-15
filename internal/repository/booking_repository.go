@@ -106,6 +106,27 @@ func (r *BookingRepository) HasTechnicianOverlap(technicianID uint, startAt, end
 	return count > 0, err
 }
 
+func (r *BookingRepository) FindBusyBookings(startAt, endAt time.Time, technicianID *uint) ([]model.Booking, error) {
+	var bookings []model.Booking
+	query := r.db.Model(&model.Booking{}).
+		Where("status NOT IN ?", []model.BookingStatus{model.BookingStatusCancelled, model.BookingStatusNoShow}).
+		Where("start_at < ? AND end_at > ?", endAt, startAt)
+	if technicianID != nil {
+		query = query.Where("technician_id = ?", *technicianID)
+	}
+	err := query.Order("start_at ASC").Find(&bookings).Error
+	return bookings, err
+}
+
+func (r *BookingRepository) FindActiveTechnicianIDs() ([]uint, error) {
+	var ids []uint
+	err := r.db.Model(&model.NailTechnician{}).
+		Where("active = ?", true).
+		Order("id ASC").
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
 func (r *BookingRepository) Create(booking *model.Booking) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockAndCheckOverlap(tx, booking); err != nil {

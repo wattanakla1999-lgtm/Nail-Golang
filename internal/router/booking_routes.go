@@ -16,6 +16,7 @@ func RegisterBookingRoutes(api *gin.RouterGroup, db *gorm.DB) {
 
 	bookings := api.Group("/bookings")
 	bookings.GET("", bookingHandler.GetBookings)
+	bookings.GET("/busy-slots", bookingHandler.GetBusySlots)
 	bookings.GET("/:id", bookingHandler.GetBookingByID)
 	bookings.POST("", bookingHandler.CreateBooking)
 	bookings.PUT("/:id", bookingHandler.UpdateBooking)

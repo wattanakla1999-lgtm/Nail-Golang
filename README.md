@@ -28,6 +28,20 @@ The endpoint runs `SELECT 1` against PostgreSQL and returns `200 OK` when the da
 go test ./...
 ```
 
+## Reports
+
+```bash
+curl "http://localhost:8080/api/reports?period=week"
+curl "http://localhost:8080/api/reports?period=month"
+```
+
+Report rules:
+
+- Revenue and payment breakdown include only completed bookings.
+- Appointment totals exclude cancelled and no-show bookings.
+- The daily revenue target is currently `5000` baht.
+- Try completing `TestReportServiceMonthPractice` in `internal/service/report_service_test.go` as a Go exercise.
+
 ## Docker
 
 ```bash

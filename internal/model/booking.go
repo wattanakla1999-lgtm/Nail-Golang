@@ -7,6 +7,7 @@ import (
 )
 
 type BookingStatus string
+type PaymentMethod string
 
 const (
 	BookingStatusPending   BookingStatus = "pending"
@@ -15,6 +16,12 @@ const (
 	BookingStatusCompleted BookingStatus = "completed"
 	BookingStatusCancelled BookingStatus = "cancelled"
 	BookingStatusNoShow    BookingStatus = "no_show"
+)
+
+const (
+	PaymentMethodCash     PaymentMethod = "cash"
+	PaymentMethodTransfer PaymentMethod = "transfer"
+	PaymentMethodCard     PaymentMethod = "card"
 )
 
 type Booking struct {
@@ -32,12 +39,22 @@ type Booking struct {
 	Price           int           `gorm:"not null;check:price >= 0" json:"price"`
 	DurationMinutes int           `gorm:"not null;check:duration_minutes > 0" json:"durationMinutes"`
 	Status          BookingStatus `gorm:"type:varchar(20);not null;default:pending;index;check:status IN ('pending','confirmed','in_service','completed','cancelled','no_show')" json:"status"`
+	PaymentMethod   PaymentMethod `gorm:"type:varchar(20);not null;default:cash;index;check:payment_method IN ('cash','transfer','card')" json:"paymentMethod"`
 	Note            string        `gorm:"type:text" json:"note,omitempty"`
 	CancelReason    string        `gorm:"type:text" json:"cancelReason,omitempty"`
 
 	User       User            `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
 	Service    Service         `gorm:"foreignKey:ServiceID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
 	Technician *NailTechnician `gorm:"foreignKey:TechnicianID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+}
+
+func IsValidPaymentMethod(method PaymentMethod) bool {
+	switch method {
+	case PaymentMethodCash, PaymentMethodTransfer, PaymentMethodCard:
+		return true
+	default:
+		return false
+	}
 }
 
 func (Booking) TableName() string {

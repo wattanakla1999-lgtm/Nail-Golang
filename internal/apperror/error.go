@@ -13,10 +13,22 @@ var (
 	ErrDuplicateEmail = errors.New("email already exists")
 )
 
+const CodeBookingTimeOverlap = "BOOKING_TIME_OVERLAP"
+
 type AppError struct {
 	Status  int
+	Code    string
 	Message string
 	Err     error
+}
+
+func NewWithCode(status int, code, message string, err error) *AppError {
+	return &AppError{
+		Status:  status,
+		Code:    code,
+		Message: message,
+		Err:     err,
+	}
 }
 
 func (e *AppError) Error() string {
@@ -45,6 +57,10 @@ func NotFound(message string, err error) *AppError {
 
 func Conflict(message string, err error) *AppError {
 	return New(http.StatusConflict, message, err)
+}
+
+func ConflictWithCode(code, message string, err error) *AppError {
+	return NewWithCode(http.StatusConflict, code, message, err)
 }
 
 func Internal(message string, err error) *AppError {

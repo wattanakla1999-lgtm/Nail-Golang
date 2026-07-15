@@ -113,6 +113,30 @@ func (f *fakeBookingStore) HasTechnicianOverlap(technicianID uint, startAt, endA
 	return false, nil
 }
 
+func (f *fakeBookingStore) FindBusyBookings(startAt, endAt time.Time, technicianID *uint) ([]model.Booking, error) {
+	bookings := make([]model.Booking, 0)
+	for _, booking := range f.bookings {
+		if booking.DeletedAt.Valid || booking.Status == model.BookingStatusCancelled || booking.Status == model.BookingStatusNoShow ||
+			!booking.StartAt.Before(endAt) || !booking.EndAt.After(startAt) ||
+			technicianID != nil && (booking.TechnicianID == nil || *booking.TechnicianID != *technicianID) {
+			continue
+		}
+		bookings = append(bookings, booking)
+	}
+	return bookings, nil
+}
+
+func (f *fakeBookingStore) FindActiveTechnicianIDs() ([]uint, error) {
+	ids := make([]uint, 0)
+	for id, technician := range f.technicians {
+		if technician.Active {
+			ids = append(ids, id)
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids, nil
+}
+
 func (f *fakeBookingStore) Create(booking *model.Booking) error {
 	for _, current := range f.bookings {
 		if current.BookingNo == booking.BookingNo {
@@ -220,7 +244,14 @@ func TestCreateBookingRejectsTechnicianOverlap(t *testing.T) {
 	store.bookings[1] = existingBooking(1, *input.TechnicianID, input.StartAt, model.BookingStatusConfirmed)
 	store.nextBookingID = 2
 	_, err := bookingServiceForTest(store).CreateBooking(input)
-	assertAppError(t, err, http.StatusConflict, "technician is already booked for this time")
+	assertAppError(t, err, http.StatusConflict, "ช่วงเวลานี้ทับซ้อนกับการจองอื่น")
+	var appErr *apperror.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("error type = %T, want *apperror.AppError", err)
+	}
+	if appErr.Code != apperror.CodeBookingTimeOverlap {
+		t.Fatalf("error code = %q, want %q", appErr.Code, apperror.CodeBookingTimeOverlap)
+	}
 }
 
 func TestCancelledAndNoShowDoNotBlockTimeSlot(t *testing.T) {
@@ -276,6 +307,87 @@ func TestGetBookingsPaginationAndFilters(t *testing.T) {
 	if total != 4 || len(bookings) != 2 || bookings[0].ID != 4 || bookings[1].ID != 5 {
 		t.Fatalf("pagination/filter result = ids %v, total %d; want [4 5], total 4", bookingIDs(bookings), total)
 	}
+}
+
+func TestGetBusySlotsForTechnician(t *testing.T) {
+	store := newFakeBookingStore()
+	store.technicians[1] = model.NailTechnician{Model: gorm.Model{ID: 1}, TechnicianName: "Nok", Active: true}
+	location := time.FixedZone("Asia/Bangkok", 7*60*60)
+	date := time.Date(2026, 7, 16, 0, 0, 0, 0, location)
+	store.bookings[1] = busySlotBooking(1, 1, time.Date(2026, 7, 16, 10, 30, 0, 0, location), 60, model.BookingStatusConfirmed)
+	store.bookings[2] = busySlotBooking(2, 1, time.Date(2026, 7, 16, 14, 0, 0, 0, location), 60, model.BookingStatusCancelled)
+	technicianID := uint(1)
+
+	serviceID := uint(2)
+	busySlots, err := bookingServiceForTest(store).GetBusySlots(date, &technicianID, &serviceID)
+	if err != nil {
+		t.Fatalf("GetBusySlots() error = %v", err)
+	}
+	if want := []string{"10:00", "11:00"}; !equalStrings(busySlots, want) {
+		t.Fatalf("busySlots = %v, want %v", busySlots, want)
+	}
+}
+
+func TestGetBusySlotsForAnyTechnician(t *testing.T) {
+	store := newFakeBookingStore()
+	store.technicians[1] = model.NailTechnician{Model: gorm.Model{ID: 1}, Active: true}
+	store.technicians[2] = model.NailTechnician{Model: gorm.Model{ID: 2}, Active: true}
+	location := time.FixedZone("Asia/Bangkok", 7*60*60)
+	date := time.Date(2026, 7, 16, 0, 0, 0, 0, location)
+	store.bookings[1] = busySlotBooking(1, 1, time.Date(2026, 7, 16, 11, 0, 0, 0, location), 60, model.BookingStatusConfirmed)
+	store.bookings[2] = busySlotBooking(2, 2, time.Date(2026, 7, 16, 11, 0, 0, 0, location), 60, model.BookingStatusPending)
+	store.bookings[3] = busySlotBooking(3, 1, time.Date(2026, 7, 16, 14, 0, 0, 0, location), 60, model.BookingStatusConfirmed)
+	store.bookings[4] = busySlotBooking(4, 0, time.Date(2026, 7, 16, 14, 0, 0, 0, location), 60, model.BookingStatusPending)
+
+	serviceID := uint(2)
+	busySlots, err := bookingServiceForTest(store).GetBusySlots(date, nil, &serviceID)
+	if err != nil {
+		t.Fatalf("GetBusySlots() error = %v", err)
+	}
+	if want := []string{"11:00", "14:00"}; !equalStrings(busySlots, want) {
+		t.Fatalf("busySlots = %v, want %v", busySlots, want)
+	}
+}
+
+func TestGetBusySlotsUsesServiceDuration(t *testing.T) {
+	store := newFakeBookingStore()
+	store.technicians[1] = model.NailTechnician{Model: gorm.Model{ID: 1}, Active: true}
+	store.services[5] = model.Service{Model: gorm.Model{ID: 5}, ServiceName: "Long service", ServicePrice: 300, Duration: 200}
+	location := time.FixedZone("Asia/Bangkok", 7*60*60)
+	date := time.Date(2026, 7, 16, 0, 0, 0, 0, location)
+	store.bookings[1] = busySlotBooking(1, 1, time.Date(2026, 7, 16, 18, 0, 0, 0, location), 200, model.BookingStatusPending)
+	technicianID, serviceID := uint(1), uint(5)
+
+	busySlots, err := bookingServiceForTest(store).GetBusySlots(date, &technicianID, &serviceID)
+	if err != nil {
+		t.Fatalf("GetBusySlots() error = %v", err)
+	}
+	if want := []string{"15:00", "16:00", "17:00", "18:00"}; !equalStrings(busySlots, want) {
+		t.Fatalf("busySlots = %v, want %v", busySlots, want)
+	}
+}
+
+func busySlotBooking(id, technicianID uint, startAt time.Time, durationMinutes int, status model.BookingStatus) model.Booking {
+	booking := model.Booking{
+		Model: gorm.Model{ID: id}, StartAt: startAt,
+		EndAt: startAt.Add(time.Duration(durationMinutes) * time.Minute), Status: status,
+	}
+	if technicianID != 0 {
+		booking.TechnicianID = &technicianID
+	}
+	return booking
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func existingBooking(id, technicianID uint, startAt time.Time, status model.BookingStatus) model.Booking {

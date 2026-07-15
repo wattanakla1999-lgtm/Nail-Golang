@@ -33,6 +33,9 @@ func New(db *gorm.DB, allowOrigin string) *gin.Engine {
 	// Bookings
 	RegisterBookingRoutes(api, db)
 
+	// Reports
+	RegisterReportRoutes(api, db)
+
 	return r
 }
 

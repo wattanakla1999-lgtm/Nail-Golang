@@ -28,25 +28,27 @@ func (n *NullableUint) UnmarshalJSON(data []byte) error {
 }
 
 type CreateBookingRequest struct {
-	UserID        uint       `json:"userId" binding:"required"`
-	ServiceID     uint       `json:"serviceId" binding:"required"`
-	TechnicianID  *uint      `json:"technicianId"`
-	StartAt       time.Time  `json:"startAt" binding:"required"`
-	EndAt         *time.Time `json:"endAt"`
-	CustomerName  string     `json:"customerName" binding:"required"`
-	CustomerPhone string     `json:"customerPhone" binding:"required"`
-	Note          string     `json:"note"`
+	UserID        uint                `json:"userId" binding:"required"`
+	ServiceID     uint                `json:"serviceId" binding:"required"`
+	TechnicianID  *uint               `json:"technicianId"`
+	StartAt       time.Time           `json:"startAt" binding:"required"`
+	EndAt         *time.Time          `json:"endAt"`
+	CustomerName  string              `json:"customerName" binding:"required"`
+	CustomerPhone string              `json:"customerPhone" binding:"required"`
+	PaymentMethod model.PaymentMethod `json:"paymentMethod"`
+	Note          string              `json:"note"`
 }
 
 type UpdateBookingRequest struct {
-	UserID        *uint        `json:"userId"`
-	ServiceID     *uint        `json:"serviceId"`
-	TechnicianID  NullableUint `json:"technicianId"`
-	StartAt       *time.Time   `json:"startAt"`
-	EndAt         *time.Time   `json:"endAt"`
-	CustomerName  *string      `json:"customerName"`
-	CustomerPhone *string      `json:"customerPhone"`
-	Note          *string      `json:"note"`
+	UserID        *uint                `json:"userId"`
+	ServiceID     *uint                `json:"serviceId"`
+	TechnicianID  NullableUint         `json:"technicianId"`
+	StartAt       *time.Time           `json:"startAt"`
+	EndAt         *time.Time           `json:"endAt"`
+	CustomerName  *string              `json:"customerName"`
+	CustomerPhone *string              `json:"customerPhone"`
+	PaymentMethod *model.PaymentMethod `json:"paymentMethod"`
+	Note          *string              `json:"note"`
 }
 
 type UpdateBookingStatusRequest struct {
@@ -86,6 +88,7 @@ type BookingResponse struct {
 	Price           int                        `json:"price"`
 	DurationMinutes int                        `json:"durationMinutes"`
 	Status          model.BookingStatus        `json:"status"`
+	PaymentMethod   model.PaymentMethod        `json:"paymentMethod"`
 	Note            string                     `json:"note,omitempty"`
 	CancelReason    string                     `json:"cancelReason,omitempty"`
 	User            BookingUserResponse        `json:"user"`
@@ -110,6 +113,7 @@ func ToBookingResponse(booking model.Booking) BookingResponse {
 		Price:           booking.Price,
 		DurationMinutes: booking.DurationMinutes,
 		Status:          booking.Status,
+		PaymentMethod:   booking.PaymentMethod,
 		Note:            booking.Note,
 		CancelReason:    booking.CancelReason,
 		User: BookingUserResponse{

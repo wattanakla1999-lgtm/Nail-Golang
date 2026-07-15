@@ -55,6 +55,31 @@ func (h *BookingHandler) GetBookingByID(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToBookingResponse(booking))
 }
 
+func (h *BookingHandler) GetBusySlots(c *gin.Context) {
+	rawDate := c.Query("date")
+	date, err := time.ParseInLocation("2006-01-02", rawDate, time.Local)
+	if err != nil {
+		respondError(c, apperror.BadRequest("date must use YYYY-MM-DD format", err))
+		return
+	}
+	technicianID, err := optionalUintQuery(c, "technicianId")
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	serviceID, err := optionalUintQuery(c, "serviceId")
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	busySlots, err := h.service.GetBusySlots(date, technicianID, serviceID)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"busySlots": busySlots})
+}
+
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	var request dto.CreateBookingRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -64,7 +89,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	booking, err := h.service.CreateBooking(service.CreateBookingInput{
 		UserID: request.UserID, ServiceID: request.ServiceID, TechnicianID: request.TechnicianID,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
-		CustomerPhone: request.CustomerPhone, Note: request.Note,
+		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
 	})
 	if err != nil {
 		respondError(c, err)
@@ -88,7 +113,7 @@ func (h *BookingHandler) UpdateBooking(c *gin.Context) {
 		UserID: request.UserID, ServiceID: request.ServiceID,
 		TechnicianID: request.TechnicianID.Value, TechnicianIDSet: request.TechnicianID.Set,
 		StartAt: request.StartAt, EndAt: request.EndAt, CustomerName: request.CustomerName,
-		CustomerPhone: request.CustomerPhone, Note: request.Note,
+		CustomerPhone: request.CustomerPhone, PaymentMethod: request.PaymentMethod, Note: request.Note,
 	})
 	if err != nil {
 		respondError(c, err)

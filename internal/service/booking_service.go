@@ -22,6 +22,8 @@ type BookingStore interface {
 	FindServiceByID(id uint) (model.Service, error)
 	FindTechnicianByID(id uint) (model.NailTechnician, error)
 	HasTechnicianOverlap(technicianID uint, startAt, endAt time.Time, excludeBookingID uint) (bool, error)
+	FindBusyBookings(startAt, endAt time.Time, technicianID *uint) ([]model.Booking, error)
+	FindActiveTechnicianIDs() ([]uint, error)
 	Create(booking *model.Booking) error
 	Update(booking *model.Booking) error
 	Delete(booking *model.Booking) error
@@ -35,6 +37,7 @@ type CreateBookingInput struct {
 	EndAt         *time.Time
 	CustomerName  string
 	CustomerPhone string
+	PaymentMethod model.PaymentMethod
 	Note          string
 }
 
@@ -47,6 +50,7 @@ type UpdateBookingInput struct {
 	EndAt           *time.Time
 	CustomerName    *string
 	CustomerPhone   *string
+	PaymentMethod   *model.PaymentMethod
 	Note            *string
 }
 
@@ -75,6 +79,48 @@ func (s *BookingService) GetBookingByID(id uint) (model.Booking, error) {
 		return model.Booking{}, apperror.NotFound("booking not found", err)
 	}
 	return booking, err
+}
+
+func (s *BookingService) GetBusySlots(date time.Time, technicianID, serviceID *uint) ([]string, error) {
+	if date.IsZero() {
+		return nil, apperror.BadRequest("date is required", apperror.ErrValidation)
+	}
+	serviceDuration := time.Hour
+	if serviceID != nil {
+		serviceModel, err := s.findService(*serviceID)
+		if err != nil {
+			return nil, err
+		}
+		if serviceModel.Duration <= 0 {
+			return nil, apperror.Internal("service has invalid duration", apperror.ErrValidation)
+		}
+		serviceDuration = time.Duration(serviceModel.Duration) * time.Minute
+	}
+	if technicianID != nil {
+		technician, err := s.findTechnician(*technicianID)
+		if err != nil {
+			return nil, err
+		}
+		if !technician.Active {
+			return nil, apperror.BadRequest("technician is inactive", apperror.ErrValidation)
+		}
+	}
+
+	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	lastSlotEnd := time.Date(date.Year(), date.Month(), date.Day(), 18, 0, 0, 0, date.Location()).Add(serviceDuration)
+	bookings, err := s.repo.FindBusyBookings(dayStart, lastSlotEnd, technicianID)
+	if err != nil {
+		return nil, err
+	}
+
+	if technicianID != nil {
+		return busySlotsForTechnician(dayStart, serviceDuration, bookings), nil
+	}
+	activeTechnicianIDs, err := s.repo.FindActiveTechnicianIDs()
+	if err != nil {
+		return nil, err
+	}
+	return busySlotsForAnyTechnician(dayStart, serviceDuration, bookings, activeTechnicianIDs), nil
 }
 
 func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking, error) {
@@ -124,6 +170,13 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 	if err != nil {
 		return model.Booking{}, apperror.Internal("could not generate booking number", err)
 	}
+	paymentMethod := input.PaymentMethod
+	if paymentMethod == "" {
+		paymentMethod = model.PaymentMethodCash
+	}
+	if !model.IsValidPaymentMethod(paymentMethod) {
+		return model.Booking{}, apperror.BadRequest("invalid payment method", apperror.ErrValidation)
+	}
 	booking := model.Booking{
 		BookingNo:       bookingNo,
 		UserID:          input.UserID,
@@ -137,6 +190,7 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 		Price:           serviceModel.ServicePrice,
 		DurationMinutes: serviceModel.Duration,
 		Status:          model.BookingStatusPending,
+		PaymentMethod:   paymentMethod,
 		Note:            input.Note,
 		User:            user,
 		Service:         serviceModel,
@@ -144,7 +198,7 @@ func (s *BookingService) CreateBooking(input CreateBookingInput) (model.Booking,
 	}
 	if err := s.repo.Create(&booking); err != nil {
 		if errors.Is(err, repository.ErrTechnicianOverlap) {
-			return model.Booking{}, apperror.Conflict("technician is already booked for this time", err)
+			return model.Booking{}, bookingTimeOverlapError(err)
 		}
 		return model.Booking{}, err
 	}
@@ -206,6 +260,12 @@ func (s *BookingService) UpdateBooking(id uint, input UpdateBookingInput) (model
 	if input.CustomerPhone != nil {
 		booking.CustomerPhone = strings.TrimSpace(*input.CustomerPhone)
 	}
+	if input.PaymentMethod != nil {
+		if !model.IsValidPaymentMethod(*input.PaymentMethod) {
+			return model.Booking{}, apperror.BadRequest("invalid payment method", apperror.ErrValidation)
+		}
+		booking.PaymentMethod = *input.PaymentMethod
+	}
 	if input.Note != nil {
 		booking.Note = *input.Note
 	}
@@ -219,7 +279,7 @@ func (s *BookingService) UpdateBooking(id uint, input UpdateBookingInput) (model
 	}
 	if err := s.repo.Update(&booking); err != nil {
 		if errors.Is(err, repository.ErrTechnicianOverlap) {
-			return model.Booking{}, apperror.Conflict("technician is already booked for this time", err)
+			return model.Booking{}, bookingTimeOverlapError(err)
 		}
 		return model.Booking{}, err
 	}
@@ -243,7 +303,7 @@ func (s *BookingService) UpdateBookingStatus(id uint, status model.BookingStatus
 	booking.CancelReason = cancelReason
 	if err := s.repo.Update(&booking); err != nil {
 		if errors.Is(err, repository.ErrTechnicianOverlap) {
-			return model.Booking{}, apperror.Conflict("technician is already booked for this time", err)
+			return model.Booking{}, bookingTimeOverlapError(err)
 		}
 		return model.Booking{}, err
 	}
@@ -291,9 +351,78 @@ func (s *BookingService) ensureNoOverlap(technicianID *uint, startAt, endAt time
 		return err
 	}
 	if overlaps {
-		return apperror.Conflict("technician is already booked for this time", apperror.ErrValidation)
+		return bookingTimeOverlapError(apperror.ErrValidation)
 	}
 	return nil
+}
+
+func bookingTimeOverlapError(err error) error {
+	return apperror.ConflictWithCode(
+		apperror.CodeBookingTimeOverlap,
+		"ช่วงเวลานี้ทับซ้อนกับการจองอื่น",
+		err,
+	)
+}
+
+func busySlotsForTechnician(dayStart time.Time, serviceDuration time.Duration, bookings []model.Booking) []string {
+	busySlots := make([]string, 0)
+	for _, slotStart := range bookingSlotStarts(dayStart) {
+		if hasBookingOverlap(bookings, slotStart, slotStart.Add(serviceDuration)) {
+			busySlots = append(busySlots, slotStart.Format("15:04"))
+		}
+	}
+	return busySlots
+}
+
+func busySlotsForAnyTechnician(dayStart time.Time, serviceDuration time.Duration, bookings []model.Booking, activeTechnicianIDs []uint) []string {
+	busySlots := make([]string, 0)
+	active := make(map[uint]struct{}, len(activeTechnicianIDs))
+	for _, id := range activeTechnicianIDs {
+		active[id] = struct{}{}
+	}
+
+	for _, slotStart := range bookingSlotStarts(dayStart) {
+		if len(active) == 0 {
+			busySlots = append(busySlots, slotStart.Format("15:04"))
+			continue
+		}
+		slotEnd := slotStart.Add(serviceDuration)
+		busyTechnicians := make(map[uint]struct{}, len(active))
+		unassignedBookings := 0
+		for _, booking := range bookings {
+			if !booking.StartAt.Before(slotEnd) || !booking.EndAt.After(slotStart) {
+				continue
+			}
+			if booking.TechnicianID == nil {
+				unassignedBookings++
+				continue
+			}
+			if _, isActive := active[*booking.TechnicianID]; isActive {
+				busyTechnicians[*booking.TechnicianID] = struct{}{}
+			}
+		}
+		if len(busyTechnicians)+unassignedBookings >= len(active) {
+			busySlots = append(busySlots, slotStart.Format("15:04"))
+		}
+	}
+	return busySlots
+}
+
+func bookingSlotStarts(dayStart time.Time) []time.Time {
+	slots := make([]time.Time, 0, 9)
+	for hour := 10; hour <= 18; hour++ {
+		slots = append(slots, time.Date(dayStart.Year(), dayStart.Month(), dayStart.Day(), hour, 0, 0, 0, dayStart.Location()))
+	}
+	return slots
+}
+
+func hasBookingOverlap(bookings []model.Booking, startAt, endAt time.Time) bool {
+	for _, booking := range bookings {
+		if booking.StartAt.Before(endAt) && booking.EndAt.After(startAt) {
+			return true
+		}
+	}
+	return false
 }
 
 func generateBookingNo() (string, error) {
